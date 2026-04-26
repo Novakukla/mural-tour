@@ -371,7 +371,9 @@ strong {
   inset: 0;
   overflow: hidden;
   cursor: grab;
-  touch-action: none;
+  touch-action: pan-y;
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 
 .tour-map__surface.is-zoomed .tour-map__viewport {
@@ -485,6 +487,7 @@ strong {
   color: #fff;
   cursor: pointer;
   pointer-events: auto;
+  -webkit-touch-callout: none;
   transform: translate(-16px, -16px);
   text-align: left;
 }

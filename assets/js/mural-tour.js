@@ -44,7 +44,8 @@
     y: 0,
     pointers: {},
     dragStart: null,
-    pinchStart: null
+    pinchStart: null,
+    touchStart: null
   };
 
   function readSeen() {
@@ -91,7 +92,7 @@
   function setCurrentStop(id) {
     currentStopId = id || DEFAULT_START_ID;
     localStorage.setItem(CURRENT_KEY, currentStopId);
-    renderAll();
+    updateDynamicViews();
   }
 
   function openStop(id, markCurrentSeen) {
@@ -117,7 +118,7 @@
     }
 
     saveSeen();
-    renderAll(seen.has(id) ? "Marked as seen." : "Moved back to the route.");
+    updateDynamicViews();
   }
 
   function renderMap() {
@@ -225,6 +226,18 @@
     });
   }
 
+  function updateMapPins() {
+    if (!mapEl) return;
+
+    tourStops.forEach(function (stop) {
+      var pin = mapEl.querySelector("[data-select-stop='" + stop.id + "']");
+      if (!pin) return;
+
+      pin.classList.toggle("is-seen", seen.has(stop.id));
+      pin.classList.toggle("is-current", currentStopId === stop.id);
+    });
+  }
+
   function setMapScale(nextScale, focalPoint) {
     var viewport = getMapViewport();
     if (!viewport) return;
@@ -274,6 +287,25 @@
     };
   }
 
+  function beginTouchMapGesture(touches) {
+    var viewport = getMapViewport();
+    if (!viewport || touches.length < 2) return;
+
+    var first = touches[0];
+    var second = touches[1];
+    var center = pointerCenter(first, second);
+    var rect = viewport.getBoundingClientRect();
+    var localX = center.x - rect.left;
+    var localY = center.y - rect.top;
+
+    mapState.touchStart = {
+      distance: pointerDistance(first, second),
+      scale: mapState.scale,
+      imageX: (localX - mapState.x) / mapState.scale,
+      imageY: (localY - mapState.y) / mapState.scale
+    };
+  }
+
   function bindMapGestures() {
     if (!mapEl) return;
 
@@ -287,15 +319,17 @@
     }, { passive: false });
 
     mapEl.addEventListener("pointerdown", function (event) {
+      if (event.pointerType === "touch") return;
+
       var viewport = event.target.closest("[data-map-viewport]");
       var interactive = event.target.closest("[data-select-stop], .tour-map__control, .pin-editor__toggle");
       if (!viewport || interactive) return;
 
       mapState.pointers[event.pointerId] = event;
-      try { viewport.setPointerCapture(event.pointerId); } catch (error) {}
 
       var pointers = pointerList();
       if (pointers.length === 1) {
+        try { viewport.setPointerCapture(event.pointerId); } catch (error) {}
         mapState.dragStart = {
           pointerId: event.pointerId,
           clientX: event.clientX,
@@ -305,6 +339,9 @@
         };
         mapState.pinchStart = null;
       } else if (pointers.length === 2) {
+        pointers.forEach(function (pointer) {
+          try { viewport.setPointerCapture(pointer.pointerId); } catch (error) {}
+        });
         mapState.pinchStart = {
           distance: pointerDistance(pointers[0], pointers[1]),
           scale: mapState.scale,
@@ -320,6 +357,7 @@
       mapState.pointers[event.pointerId] = event;
       var pointers = pointerList();
       if (pointers.length === 2 && mapState.pinchStart) {
+        event.preventDefault();
         var distance = pointerDistance(pointers[0], pointers[1]);
         var center = pointerCenter(pointers[0], pointers[1]);
         setMapScale(mapState.pinchStart.scale * (distance / mapState.pinchStart.distance), center);
@@ -327,6 +365,7 @@
       }
 
       if (pointers.length === 1 && mapState.dragStart && mapState.scale > mapState.minScale) {
+        event.preventDefault();
         mapState.x = mapState.dragStart.x + event.clientX - mapState.dragStart.clientX;
         mapState.y = mapState.dragStart.y + event.clientY - mapState.dragStart.clientY;
         applyMapTransform();
@@ -354,6 +393,44 @@
     mapEl.addEventListener("pointerup", endPointer);
     mapEl.addEventListener("pointercancel", endPointer);
     mapEl.addEventListener("lostpointercapture", endPointer);
+
+    mapEl.addEventListener("touchstart", function (event) {
+      var viewport = event.target.closest("[data-map-viewport]");
+      var interactive = event.target.closest("[data-select-stop], .tour-map__control, .pin-editor__toggle");
+      if (!viewport || interactive || event.touches.length < 2) return;
+
+      event.preventDefault();
+      beginTouchMapGesture(event.touches);
+    }, { passive: false });
+
+    mapEl.addEventListener("touchmove", function (event) {
+      var viewport = event.target.closest("[data-map-viewport]");
+      if (!viewport || event.touches.length < 2) return;
+
+      event.preventDefault();
+      if (!mapState.touchStart) beginTouchMapGesture(event.touches);
+      if (!mapState.touchStart) return;
+
+      var first = event.touches[0];
+      var second = event.touches[1];
+      var center = pointerCenter(first, second);
+      var rect = viewport.getBoundingClientRect();
+      updateMapMaxScale();
+      var scale = clamp(mapState.touchStart.scale * (pointerDistance(first, second) / mapState.touchStart.distance), mapState.minScale, mapState.maxScale);
+
+      mapState.scale = scale;
+      mapState.x = center.x - rect.left - mapState.touchStart.imageX * scale;
+      mapState.y = center.y - rect.top - mapState.touchStart.imageY * scale;
+      applyMapTransform();
+    }, { passive: false });
+
+    mapEl.addEventListener("touchend", function (event) {
+      if (event.touches.length >= 2) {
+        beginTouchMapGesture(event.touches);
+      } else {
+        mapState.touchStart = null;
+      }
+    });
   }
 
   function renderSelectedStop() {
@@ -455,27 +532,28 @@
     if (selectedStop && currentStopId !== selectedStop.id) {
       currentStopId = selectedStop.id;
       localStorage.setItem(CURRENT_KEY, currentStopId);
-      renderMap();
-      renderSelectedStop();
-      renderStopRecommendations();
-      updateStopControls();
-      updateProgress();
+      updateDynamicViews();
     }
   }
 
-  function renderAll() {
-    renderMap();
+  function updateDynamicViews() {
     renderSelectedStop();
     renderStopRecommendations();
     updateStopControls();
     updateProgress();
+    updateMapPins();
+  }
+
+  function renderAll() {
+    renderMap();
+    updateDynamicViews();
     updateRouteMode();
   }
 
   function resetTour() {
     seen.clear();
     saveSeen();
-    renderAll("Seen stops reset.");
+    updateDynamicViews();
   }
 
   function updateTopButton() {
