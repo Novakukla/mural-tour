@@ -335,7 +335,7 @@ strong {
 .tour-map__surface {
   position: relative;
   min-height: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 1 / 1;
   overflow: hidden;
   border: 2px solid var(--ink);
   border-radius: 8px;
@@ -366,66 +366,107 @@ strong {
   vector-effect: non-scaling-stroke;
 }
 
-.tour-map__label,
-.tour-map__building {
+.tour-map__viewport {
   position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+
+.tour-map__surface.is-zoomed .tour-map__viewport {
+  cursor: grabbing;
+}
+
+.tour-map__content {
+  position: absolute;
+  inset: 0;
   z-index: 1;
-  color: rgba(255, 255, 255, 0.68);
-  font-family: "Bebas Neue", "Arial Narrow", Arial, sans-serif;
-  line-height: 1;
-  text-transform: uppercase;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.tour-map__image {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: -webkit-optimize-contrast;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.tour-map__pin-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
   pointer-events: none;
 }
 
-.tour-map__label {
-  font-size: 18px;
-}
-
-.tour-map__label--north {
-  top: 10px;
-  left: 14px;
-}
-
-.tour-map__label--south {
-  right: 14px;
-  bottom: 10px;
-}
-
-.tour-map__building {
-  display: grid;
-  place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.22);
+.tour-map__zoom-controls {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 6;
+  display: inline-flex;
+  gap: 6px;
+  padding: 6px;
+  border: 2px solid var(--ink);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.74);
+  box-shadow: 2px 2px 0 var(--shadow);
+}
+
+.tour-map__control {
+  display: inline-grid;
+  place-items: center;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 6px 9px;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  background: var(--brand-blue);
+  color: #fff;
+  cursor: pointer;
+  font-family: "Clash Display", "Rubik", system-ui, Arial, sans-serif;
   font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
 }
 
-.tour-map__building--5 {
-  left: 18%;
-  top: 20%;
-  width: 26%;
-  height: 28%;
+.tour-map__control--reset {
+  min-width: 56px;
+  background: var(--brand-yellow);
+  color: var(--ink);
+  font-size: 13px;
+  text-transform: uppercase;
 }
 
-.tour-map__building--6 {
-  left: 42%;
-  top: 34%;
-  width: 25%;
-  height: 30%;
+.tour-map__control:hover,
+.tour-map__control:focus-visible {
+  outline: 2px solid var(--brand-yellow);
+  outline-offset: 2px;
 }
 
-.tour-map__building--7 {
-  right: 10%;
-  top: 18%;
-  width: 21%;
-  height: 32%;
+/* Pin editor styles */
+.pin-editor__toggle {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 8;
 }
 
-.tour-map__building--2 {
-  left: 8%;
-  bottom: 11%;
-  width: 23%;
-  height: 20%;
+.pin-editor-active .tour-map__pin {
+  cursor: move;
+  touch-action: none;
+}
+
+.pin-editor-active .tour-map__pin-number {
+  background: var(--brand-yellow);
+  color: var(--ink);
 }
 
 .tour-map__pin {
@@ -443,6 +484,7 @@ strong {
   background: transparent;
   color: #fff;
   cursor: pointer;
+  pointer-events: auto;
   transform: translate(-16px, -16px);
   text-align: left;
 }
